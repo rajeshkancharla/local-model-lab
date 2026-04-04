@@ -1,0 +1,47 @@
+- id: factual_short_01
+  category: factual
+  text: "Explain the difference between TCP and UDP in 2-3 sentences."
+  expected_format: free_text
+  difficulty: easy
+
+- id: factual_short_02
+  category: factual
+  text: "What is the CAP theorem in distributed systems? Explain briefly."
+  expected_format: free_text
+  difficulty: medium
+
+- id: reasoning_01
+  category: reasoning
+  text: "A bat and a ball cost $1.10 in total. The bat costs $1.00 more than the ball. How much does the ball cost? Show your reasoning step by step."
+  expected_format: free_text
+  difficulty: medium
+
+- id: code_gen_01
+  category: code_generation
+  text: "Write a Python function that checks whether a given string is a palindrome. Include a docstring."
+  expected_format: code
+  difficulty: easy
+
+- id: summarization_01
+  category: summarization
+  text: "Summarize the key differences between supervised and unsupervised machine learning in a concise paragraph."
+  expected_format: free_text
+  difficulty: easy
+
+- id: creative_01
+  category: creative
+  text: "Write a short haiku about debugging software."
+  expected_format: free_text
+  difficulty: easy
+
+- id: multi_step_01
+  category: multi_step
+  text: "Explain how a hash table works. Cover: (1) the basic data structure, (2) how collisions are handled, and (3) the average time complexity for insert and lookup."
+  expected_format: free_text
+  difficulty: medium
+
+- id: code_gen_02
+  category: code_generation
+  text: "Write a Python function that takes a list of integers and returns the two numbers that add up to a given target. Use a dictionary for O(n) time complexity."
+  expected_format: code
+  difficulty: medium
