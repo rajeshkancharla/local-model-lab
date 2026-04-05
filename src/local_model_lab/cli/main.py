@@ -134,5 +134,79 @@ def health():
         raise typer.Exit(code=1)
 
 
+@app.command()
+def structured(
+    models: str = typer.Option(
+        ",".join(settings.models),
+        "--models", "-m",
+        help="Comma-separated model tags to test.",
+    ),
+    schemas: str = typer.Option(
+        "sentiment,entities,code_review,summary",
+        "--schemas", "-s",
+        help="Comma-separated schema names to test.",
+    ),
+    temperatures: str = typer.Option(
+        "0.0,0.3,0.7,1.0",
+        "--temperatures", "-t",
+        help="Comma-separated temperature values to sweep.",
+    ),
+    repeats: int = typer.Option(
+        5,
+        "--repeats", "-r",
+        help="Repeats per (model, schema, temperature) cell.",
+    ),
+    output_dir: Path = typer.Option(
+        None,
+        "--output-dir", "-o",
+        help="Directory for result JSONL files (default: data/results/).",
+    ),
+):
+    """Run structured output temperature variance experiments."""
+    from local_model_lab.structured.experiments import (
+        run_temperature_experiment,
+        print_experiment_summary,
+    )
+
+    model_list = [m.strip() for m in models.split(",")]
+    schema_list = [s.strip() for s in schemas.split(",")]
+    temp_list = [float(t.strip()) for t in temperatures.split(",")]
+
+    console.print(f"[bold]Models:[/bold] {model_list}")
+    console.print(f"[bold]Schemas:[/bold] {schema_list}")
+    console.print(f"[bold]Temperatures:[/bold] {temp_list}")
+    console.print(f"[bold]Repeats per cell:[/bold] {repeats}\n")
+
+    results = asyncio.run(
+        run_temperature_experiment(
+            models=model_list,
+            schema_names=schema_list,
+            temperatures=temp_list,
+            repeats=repeats,
+            output_dir=output_dir,
+        )
+    )
+    print_experiment_summary(results)
+
+
+@app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1", "--host", help="Bind host."),
+    port: int = typer.Option(8000, "--port", "-p", help="Bind port."),
+    reload: bool = typer.Option(False, "--reload", help="Enable auto-reload for development."),
+):
+    """Start the FastAPI server (local_model_lab.api.app)."""
+    import uvicorn
+
+    console.print(f"[bold green]Starting API server at http://{host}:{port}[/bold green]")
+    console.print(f"[dim]Docs: http://{host}:{port}/docs[/dim]\n")
+    uvicorn.run(
+        "local_model_lab.api.app:app",
+        host=host,
+        port=port,
+        reload=reload,
+    )
+
+
 if __name__ == "__main__":
     app()
