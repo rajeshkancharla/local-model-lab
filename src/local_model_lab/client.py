@@ -77,17 +77,26 @@ class OllamaClient:
         *,
         temperature: float = 0.0,
         system: str | None = None,
+        extra_options: dict | None = None,
     ) -> dict:
-        """Non-streaming call to /api/generate. Returns the full response dict."""
+        """Non-streaming call to /api/generate. Returns the full response dict.
+
+        extra_options is merged into the Ollama options dict, allowing callers
+        to override num_predict, pass model-specific flags like think=False, etc.
+        """
+        options: dict = {
+            "temperature": temperature,
+            "num_gpu": settings.num_gpu,
+            "num_predict": settings.max_tokens,
+        }
+        if extra_options:
+            options.update(extra_options)
+
         payload: dict = {
             "model": model,
             "prompt": prompt,
             "stream": False,
-            "options": {
-                "temperature": temperature,
-                "num_gpu": settings.num_gpu,
-                "num_predict": settings.max_tokens,
-            },
+            "options": options,
         }
         if system:
             payload["system"] = system
