@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -17,6 +17,9 @@ class Prompt:
     text: str
     expected_format: str = "free_text"
     difficulty: str = "medium"
+    # Phase 3: quality scoring metadata
+    expected_keywords: list[str] = field(default_factory=list)
+    min_length: int = 100  # minimum response length for a "complete" answer
 
 
 def load_prompts(name: str) -> list[Prompt]:
