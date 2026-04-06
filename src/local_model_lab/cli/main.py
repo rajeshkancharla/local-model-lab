@@ -190,6 +190,119 @@ def structured(
 
 
 @app.command()
+def compare(
+    models: str = typer.Option(
+        "llama3.2:3b,phi3.5:3.8b,gemma3:4b",
+        "--models", "-m",
+        help="Comma-separated model tags to compare (qwen3:4b excluded by default — too slow for structured output).",
+    ),
+    prompts: str = typer.Option(
+        "comparison_full",
+        "--prompts", "-p",
+        help="Prompt set name (YAML file in data/prompts/ without extension).",
+    ),
+    repeats: int = typer.Option(
+        3,
+        "--repeats", "-r",
+        help="Number of repeats per prompt.",
+    ),
+    temperature: float = typer.Option(
+        0.0,
+        "--temperature", "-t",
+        help="Sampling temperature (0.0 = deterministic).",
+    ),
+    output_dir: Path = typer.Option(
+        None,
+        "--output-dir", "-o",
+        help="Directory for result JSONL files (default: data/results/).",
+    ),
+):
+    """Run the Phase 3 model comparison study.
+
+    Evaluates each model across all prompts with quality scoring and memory
+    measurement. Results are saved incrementally as JSONL files.
+
+    Estimated run time on CPU: ~2-3 hours for 3 models × 40 prompts × 3 repeats.
+    Do not lock the laptop screen — Windows throttles CPU and causes timeouts.
+    """
+    from local_model_lab.comparison.evaluator import run_comparison, print_comparison_summary
+
+    model_list = [m.strip() for m in models.split(",")]
+    console.print(f"[bold]Models:[/bold] {model_list}")
+    console.print(f"[bold]Prompt set:[/bold] {prompts}")
+    console.print(f"[bold]Repeats:[/bold] {repeats}")
+    console.print(f"[bold]Temperature:[/bold] {temperature}")
+    total = len(model_list) * 40 * repeats  # approx
+    console.print(f"[bold yellow]Estimated inferences:[/bold yellow] ~{total} "
+                  "(keep laptop unlocked to prevent CPU throttling)\n")
+
+    results = asyncio.run(
+        run_comparison(
+            models=model_list,
+            prompt_set=prompts,
+            temperature=temperature,
+            repeats=repeats,
+            output_dir=output_dir,
+        )
+    )
+    print_comparison_summary(results)
+
+
+@app.command()
+def report(
+    output: Path = typer.Option(
+        None,
+        "--output", "-o",
+        help="Output path for the Markdown report (default: reports/comparison.md).",
+    ),
+    results_dir: Path = typer.Option(
+        None,
+        "--results-dir",
+        help="Directory containing comparison_*.jsonl files (default: data/results/).",
+    ),
+):
+    """Generate the Phase 3 comparison Markdown report.
+
+    Automatically discovers the latest comparison_*.jsonl file per model and
+    the latest structured_experiment_*.jsonl (Phase 2 data) in data/results/.
+    Writes reports/comparison.md.
+    """
+    from local_model_lab.comparison.report import (
+        find_latest_comparison_files,
+        find_latest_phase2_file,
+        generate_report,
+    )
+
+    search_dir = results_dir or settings.results_dir
+    comparison_files = find_latest_comparison_files(search_dir)
+
+    if not comparison_files:
+        console.print(
+            "[bold red]No comparison_*.jsonl files found.[/bold red]\n"
+            "Run [bold]lab compare[/bold] first to generate data."
+        )
+        raise typer.Exit(code=1)
+
+    phase2_file = find_latest_phase2_file(search_dir)
+    if phase2_file:
+        console.print(f"[dim]Phase 2 data: {phase2_file.name}[/dim]")
+    else:
+        console.print("[dim]No Phase 2 experiment data found — structured output section will be omitted.[/dim]")
+
+    console.print(f"[dim]Comparison files: {[f.name for f in comparison_files]}[/dim]\n")
+
+    md = generate_report(
+        comparison_files=comparison_files,
+        phase2_file=phase2_file,
+        output_path=output,
+    )
+
+    out_path = output or (settings.reports_dir / "comparison.md")
+    console.print(f"[bold green]Report written to:[/bold green] {out_path}")
+    console.print(f"[dim]({len(md.splitlines())} lines, {len(md):,} chars)[/dim]")
+
+
+@app.command()
 def serve(
     host: str = typer.Option("127.0.0.1", "--host", help="Bind host."),
     port: int = typer.Option(8000, "--port", "-p", help="Bind port."),

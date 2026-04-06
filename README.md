@@ -23,20 +23,21 @@ This project systematically evaluates four open-source SLMs from four companies 
 ## Phases
 
 ### Phase 1: Inference Performance Benchmarking ✅
+
 - Ollama HTTP client built with `httpx` (direct REST, not the ollama SDK — for timing precision)
 - Tracks: tokens/sec, time to first token (TTFT), total latency
 - Warmup runs excluded from stats; models explicitly unloaded between benchmarks
 - Per-inference timeout and token cap to handle runaway generation
 - Results saved incrementally as JSONL — crash resilient
 
-**Phase 1 Results** (CPU-only, temperature=0.0, 8 prompts × 3 repeats):
+**Results** (CPU-only, temperature=0.0, 8 prompts × 3 repeats):
 
-| Model | Avg Tokens/s | Avg TTFT (ms) | Avg Latency (ms) | Avg Tokens |
-|-------|-------------|---------------|------------------|------------|
-| llama3.2:3b | 13.4 | 1,261 | 13,072 | 147 |
-| phi3.5:3.8b | 9.8 | 1,467 | 32,814 | 301 |
-| gemma3:4b | 10.6 | 1,647 | 23,066 | 216 |
-| qwen3:4b | 10.2 | 4,023 | 36,434 | 353 |
+| Model | Avg Tokens/s | Avg TTFT (ms) | Avg Latency (ms) |
+|-------|-------------:|-------------:|-----------------:|
+| llama3.2:3b | 13.4 | 1,261 | 13,072 |
+| phi3.5:3.8b | 9.8 | 1,467 | 32,814 |
+| gemma3:4b | 10.6 | 1,647 | 23,066 |
+| qwen3:4b | 10.2 | 4,023 | 36,434 |
 
 Key findings:
 - **llama3.2:3b wins every speed metric** — fastest tokens/sec, lowest TTFT, lowest latency
@@ -44,18 +45,72 @@ Key findings:
 - qwen3:4b TTFT (4s) does not improve with warmup — model characteristic, not cold-start
 - Thermal throttling observed under sustained CPU load (tokens/sec degrades ~10-15% over long runs)
 
-### Phase 2: Structured Output and Determinism 🔜
-- Pydantic schema enforcement (SentimentResult, EntityList, CodeReview, StructuredSummary)
-- Retry mechanism with error feedback on validation failure
-- Temperature variance study (0.0 → 1.0) documenting output consistency
-- FastAPI wrapper: `/generate`, `/generate/structured`, `/models`, `/health`
+---
 
-### Phase 3: Model Comparison Study 🔜
-- 30-50 standardised prompts across: factual, reasoning, summarisation, code generation, creative, structured output, multi-step
-- Heuristic quality scoring (relevance, completeness, format compliance, coherence)
-- Memory footprint measurement per model via psutil
-- Generated Markdown technical report with full data tables and per-category breakdowns
-- Quantized variant comparison (extra mile)
+### Phase 2: Structured Output and Determinism ✅
+
+- Pydantic schema enforcement for four schemas: `SentimentResult`, `EntityList`, `CodeReview`, `StructuredSummary`
+- JSON extraction handles code fences, inline comments (phi3.5), and embedded prose
+- Retry mechanism with validation error feedback — model self-corrects on second attempt
+- Temperature variance study (0.0, 0.3, 0.7, 1.0 × 5 repeats) documenting output consistency
+- FastAPI wrapper: `POST /generate`, `POST /generate/structured`, `GET /models`, `GET /health`
+
+**Structured output success rates** (all temperatures, 5 repeats per cell):
+
+| Model | sentiment | entities | code_review | summary |
+|-------|:---------:|:--------:|:-----------:|:-------:|
+| gemma3:4b | 100% | 100% | 100% | 100% |
+| phi3.5:3.8b | 100% | 100% | 100% | 100% |
+| llama3.2:3b | 100% | 100% | 95%* | 100% |
+| qwen3:4b | 100% | 0% | partial | 0% |
+
+\* llama degrades to 80% at temperature=0.7; 100% at 0.0
+
+Key findings:
+- **gemma3:4b is the most reliable structured output model** — zero retries needed
+- Temperature 0.0 is essential for production structured output use
+- qwen3:4b is unsuitable — verbose generation exhausts token budget before completing JSON
+- Small models require plain-English field descriptions in the prompt, not JSON Schema definitions
+
+---
+
+### Phase 3: Model Comparison Study ✅
+
+- 40 standardised prompts across 7 categories: factual recall, reasoning, summarization, code generation, creative writing, multi-step instructions, structured output
+- Heuristic quality scoring: 4 dimensions × 0–5 = 20 point scale (no LLM-as-judge — offline constraint)
+- Memory footprint measurement per model via psutil RSS delta
+- Full technical report: [reports/comparison.md](reports/comparison.md)
+
+**Results** (CPU-only, temperature=0.0, 40 prompts × 3 repeats = 120 inferences per model):
+
+| Model | Avg T/s | TTFT (ms) | Latency (ms) | Memory (MB) | Quality/20 |
+|-------|--------:|----------:|-------------:|------------:|-----------:|
+| llama3.2:3b | **13.1** | 6,467 | **26,638** | 30 | **16.8** |
+| phi3.5:3.8b | 10.4 | **5,739** | 37,428 | ~2,000* | 16.8 |
+| gemma3:4b | 10.4 | 7,156 | 37,640 | 36 | 16.2 |
+
+\* phi3.5 RSS delta was 0 MB due to OS memory page reuse after llama unload; actual disk size is 2.0 GB
+
+**Quality by category:**
+
+| Category | gemma3:4b | llama3.2:3b | phi3.5:3.8b |
+|----------|----------:|------------:|------------:|
+| Factual Recall | 16.5 | 16.3 | 16.0 |
+| Reasoning | 17.2 | 17.5 | 17.3 |
+| Summarization | 16.2 | **17.8** | 17.2 |
+| Code Generation | 16.5 | 16.2 | **18.0** |
+| Creative Writing | 15.5 | 15.8 | 16.0 |
+| Multi-step | 15.3 | 16.5 | 16.0 |
+| Structured Output | 16.3 | 17.1 | 16.6 |
+
+**Recommendation by use case:**
+
+| Use case | Model |
+|----------|-------|
+| Latency-sensitive / real-time | `llama3.2:3b` |
+| General quality | `llama3.2:3b` |
+| Code generation | `phi3.5:3.8b` |
+| Structured JSON output | `gemma3:4b` |
 
 ---
 
@@ -99,22 +154,22 @@ lab models
 ## Usage
 
 ```bash
-# Run benchmark (Phase 1)
+# Phase 1 — inference benchmarks
 lab benchmark --models llama3.2:3b,phi3.5:3.8b,gemma3:4b,qwen3:4b --prompts benchmark_quick --repeats 3
 
-# Test structured output (Phase 2)
-lab structured --model llama3.2:3b --schema sentiment --temperature 0.0
+# Phase 2 — structured output temperature sweep
+lab structured --models llama3.2:3b,phi3.5:3.8b,gemma3:4b --schemas sentiment,entities,code_review,summary --temperatures 0.0,0.3,0.7,1.0 --repeats 5
 
-# Full model comparison (Phase 3)
-lab compare --models all --prompts full
-
-# Generate report
-lab report --output reports/comparison.md
-
-# Start API server
+# Phase 2 — start FastAPI server (http://localhost:8000/docs)
 lab serve
 
-# Check Ollama status
+# Phase 3 — full model comparison (~2-3 hours on CPU, keep laptop unlocked)
+lab compare --models llama3.2:3b,phi3.5:3.8b,gemma3:4b --prompts comparison_full --repeats 3
+
+# Phase 3 — generate Markdown report from latest results
+lab report
+
+# Utilities
 lab health
 lab models
 ```
