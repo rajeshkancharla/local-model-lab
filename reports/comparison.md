@@ -1,6 +1,6 @@
 # Local AI Model Comparison Study
 
-*Generated: 2026-04-06 · 40 prompts · 360 inferences · CPU-only inference (Lenovo Yoga, Intel Core i7)*
+*Generated: 2026-04-10 · 40 prompts · 360 inferences · CPU-only inference (Lenovo Yoga, Intel Core i7)*
 
 ---
 
@@ -86,10 +86,10 @@ Results from the temperature variance experiment (4 temperatures × 5 repeats pe
 
 | Schema | `gemma3:4b` | `llama3.2:3b` | `phi3.5:3.8b` |
 |--------|---:|---:|---:|
-| code_review | 100% | 95% (4↻) | 100% (1↻) |
-| entities | 100% | 100% | 100% |
-| sentiment | 100% | 100% (1↻) | 100% |
-| summary | 100% | 100% | 100% |
+| code_review | 100% | 90% (3↻) | 100% (2↻) |
+| entities | 100% | 100% (1↻) | 100% |
+| sentiment | 100% | 100% | 100% |
+| summary | 100% | 100% (1↻) | 100% |
 
 ### Temperature Effect on Success Rate
 
@@ -97,7 +97,7 @@ Results from the temperature variance experiment (4 temperatures × 5 repeats pe
 |-------------|---:|---:|---:|
 | `0.0` | 100% | 100% | 100% |
 | `0.3` | 100% | 100% | 100% |
-| `0.7` | 100% | 95% | 100% |
+| `0.7` | 100% | 90% | 100% |
 | `1.0` | 100% | 100% | 100% |
 
 > **↻** = retry was needed (model self-corrected on second attempt).  Temperature 0.0 consistently produced the highest structured output reliability.
